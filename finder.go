@@ -3,39 +3,34 @@ package finder
 import (
     "github.com/go-ego/riot"
     "github.com/go-ego/riot/types"
-    "os"
-    "os/signal"
     "path"
     "sync"
-    "syscall"
 )
 
 type (
     Engine struct {
-    stopCh  chan struct{}
-    locker  *Locker
-    mu      sync.Mutex
-    buckets map[string]*Bucket
-    baseDir string
-}
+        mu      sync.Mutex
+        buckets map[string]*Bucket
+        baseDir string
+    }
     Bucket struct {
         searcher *riot.Engine
     }
 )
-func NewEngine(baseDir...string) *Engine {
+
+func NewEngine(baseDir ...string) *Engine {
     eng := &Engine{
-        stopCh:  make(chan struct{}),
         buckets: map[string]*Bucket{},
-        locker:  NewLocker(),
         baseDir: "finder_data",
     }
-    if len(baseDir) > 0 {}
+    if len(baseDir) > 0 {
+    }
     eng.baseDir = baseDir[0]
     return eng
 }
 func (e *Engine) Bucket(name string) *Bucket {
-    e.locker.Lock(name)
-    defer e.locker.UnLock(name)
+    e.mu.Lock()
+    defer e.mu.Unlock()
     if b, ok := e.buckets[name]; ok {
         return b
     }
@@ -47,29 +42,10 @@ func (e *Engine) Bucket(name string) *Bucket {
     })
     searcher.FlushIndex()
     b := &Bucket{searcher: searcher}
-    e.mu.Lock()
     e.buckets[name] = b
-    e.mu.Unlock()
     return b
 }
-func (e *Engine) WaitStopSignal() {
-    handlerArray := []os.Signal{
-        syscall.SIGINT,
-        syscall.SIGILL,
-        syscall.SIGFPE,
-        syscall.SIGSEGV,
-        syscall.SIGTERM,
-        syscall.SIGABRT,
-    }
-    sigs := make(chan os.Signal, 1)
-    signal.Notify(sigs, handlerArray...)
-    select {
-    case <-sigs:
-        e.onStop()
-    case <-e.stopCh:
-        e.onStop()
-    }
-}
+
 func (e *Engine) onStop() {
     e.mu.Lock()
     defer e.mu.Unlock()
@@ -78,8 +54,8 @@ func (e *Engine) onStop() {
         delete(e.buckets, k)
     }
 }
-func (e *Engine) Stop() {
-    e.stopCh <- struct{}{}
+func (e *Engine) CloseAll() {
+    e.onStop()
 }
 func (e *Bucket) Index(id string, content string, labels ...string) {
     doc := types.DocData{

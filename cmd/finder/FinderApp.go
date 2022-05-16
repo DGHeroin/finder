@@ -7,6 +7,8 @@ import (
 
 func main() {
     e := finder.NewEngine("my-data")
+    defer e.CloseAll()
+
     r := e.Bucket("my-bucket")
 
     r.Index("100", "所以, 你好, 再见")
@@ -25,5 +27,5 @@ func main() {
     log.Println("find:", r.Find("世界"))
     log.Println("find:", r.Find("engine"))
 
-    e.WaitStopSignal()
+
 }
